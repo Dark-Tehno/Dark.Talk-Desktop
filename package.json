@@ -1,0 +1,64 @@
+{
+  "name": "darktalk-desktop",
+  "version": "1.3.0",
+  "description": "Dark.Talk — secure real-time messenger (Windows desktop client)",
+  "author": "Dark.Tehno",
+  "license": "GPL-3.0",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "start": "node build.mjs && electron .",
+    "dist": "node build.mjs && electron-builder --win nsis portable",
+    "dist:dir": "node build.mjs && electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.darktehno.darktalk.desktop",
+    "productName": "Dark.Talk",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "artifactName": "Dark.Talk-${version}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Dark.Talk-${version}-portable.${ext}"
+    }
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3"
+  }
+}
