@@ -1,4 +1,5 @@
 import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, Menu, powerMonitor, protocol, session, shell } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import { Readable } from 'node:stream';
@@ -60,6 +61,64 @@ function createWindow(): void {
   });
   win.on('closed', () => {
     win = null;
+  });
+}
+
+function showUpdateMessage(options: Electron.MessageBoxOptions): Promise<Electron.MessageBoxReturnValue> {
+  if (win && !win.isDestroyed()) return dialog.showMessageBox(win, options);
+  return dialog.showMessageBox(options);
+}
+
+function setupAutoUpdates(): void {
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return;
+
+  const isRussian = app.getLocale().toLowerCase().startsWith('ru');
+  let downloadStarted = false;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-available', (info) => {
+    downloadStarted = true;
+    console.info(`Downloading Dark.Talk update ${info.version}`);
+  });
+  autoUpdater.on('update-not-available', () => {
+    downloadStarted = false;
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    downloadStarted = false;
+    void showUpdateMessage({
+      type: 'info',
+      title: isRussian ? 'Обновление Dark.Talk' : 'Dark.Talk update',
+      message: isRussian ? `Версия ${info.version} загружена` : `Version ${info.version} is ready`,
+      detail: isRussian
+        ? 'Перезапустите приложение, чтобы установить обновление. Можно сделать это позже — обновление установится при следующем выходе.'
+        : 'Restart the app to install the update. You can do this later; it will be installed when you next quit.',
+      buttons: [isRussian ? 'Перезапустить сейчас' : 'Restart now', isRussian ? 'Позже' : 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+      .then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      })
+      .catch((error: unknown) => console.error('Unable to show update prompt:', error));
+  });
+  autoUpdater.on('error', (error) => {
+    console.error('Dark.Talk auto-update error:', error);
+    if (!downloadStarted) return;
+    downloadStarted = false;
+    void showUpdateMessage({
+      type: 'error',
+      title: isRussian ? 'Ошибка обновления' : 'Update error',
+      message: isRussian ? 'Не удалось загрузить обновление.' : 'The update could not be downloaded.',
+      detail: isRussian
+        ? 'Проверьте подключение к интернету. Приложение попробует снова при следующем запуске.'
+        : 'Check your internet connection. The app will try again the next time it starts.',
+    })
+      .catch((dialogError: unknown) => console.error('Unable to show update error:', dialogError));
+  });
+
+  void autoUpdater.checkForUpdates().catch((error: unknown) => {
+    console.error('Dark.Talk update check failed:', error);
   });
 }
 
@@ -279,6 +338,7 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaProtocol();
     registerIpc();
     createWindow();
+    setupAutoUpdates();
     if (store.token) ws.connectChats();
 
     app.on('activate', () => {
